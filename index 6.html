@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>공식입장 카드 메이커</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;600;700;800&display=swap">
+<style>
+/* 왼쪽 입력판 + 오른쪽 미리보기, 휴대폰에선 한 줄로 */
+:root{--bg:#0c1014;--panel:#1a1d21;--line:#363636;--fg:#f5f5f5;--sub:#a8a8a8;--accent:#0095f6;--err:#ff6b6b;color-scheme:dark;
+--font:"Noto Sans KR","Apple SD Gothic Neo","Malgun Gothic",sans-serif}
+*{box-sizing:border-box}
+html,body{background:var(--bg);color:var(--fg);font-family:var(--font)}
+.wrap{max-width:1100px;margin:0 auto;padding-block:20px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;grid-template-columns:minmax(0,380px) minmax(0,1fr);gap:24px}
+@media(max-width:800px){.wrap{grid-template-columns:1fr}}
+h1{font-size:20px;margin:0 0 16px}
+.f{display:flex;flex-direction:column;gap:5px;margin-bottom:12px;min-width:0}
+label{font-size:13px;color:var(--sub)}
+input[type=text],input[type=number],textarea{width:100%;padding:10px;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--fg);font-size:15px;font-family:inherit}
+input:focus-visible,textarea:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+input[type=file]{color:var(--sub);font-size:14px;max-width:100%}
+textarea{line-height:1.5;resize:vertical}
+.r{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.ck{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--fg);margin-bottom:10px}
+.err{color:var(--err);font-size:13px;min-height:16px}
+.prev{background:#000;border-radius:12px;padding:10px}
+.prev img{width:100%;display:block}
+.save{margin-top:12px;padding:12px 14px;border-radius:10px;background:var(--panel);border:1px solid var(--line);font-size:14px;line-height:1.6;color:var(--fg)}
+.save b{color:var(--accent)}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+<div>
+<h1>공식입장 카드 메이커</h1>
+<div class="f"><label for="photo">사진 (4:5 자동 크롭)</label><input type="file" id="photo" accept="image/*"></div>
+<div class="f"><label for="avatar">작성자 프로필 사진 (동그랗게 잘림)</label><input type="file" id="avatar" accept="image/*"></div>
+<div class="r">
+<div class="f"><label for="h1">제목 1줄</label><input type="text" id="h1" value="버스데이,"></div>
+<div class="f"><label for="h2">제목 2줄</label><input type="text" id="h2" value="한월와 열애중?"></div>
+</div>
+<div class="f"><label for="cap">본문 (빈 줄 = 문단 구분, 첫 문단은 계정명 옆)</label>
+<textarea id="cap" rows="11">버스데이와 한월이 열애설에 휩싸였습니다.
+
+두 사람이 고급 프라이빗 룸에서 데이트를 했다는 사진이 공개 되었습니다. 이와 함께 "두 사람이 2시간을 보낸 후 남자가 먼저 나와 차량에 탑승하고 3분 뒤에 여자가 같은 차량에 탑승했다"고 전했습니다.
+
+이외에도 해외 팬들을 중심으로 과거 SNS 게시물과 두 사람의 행동 패턴을 연결한 다양한 추측이 퍼지면서 관심이 커지고 있는데요.
+
+다만 두 사람의 만남을 뒷받침할 확실한 증거는 공개되지 않았으며, 양측도 공식 입장을 밝히지 않은 상태입니다.</textarea></div>
+<div class="r">
+<div class="f"><label for="user">계정명</label><input type="text" id="user" value="oo_ent_official"></div>
+<div class="f"><label for="likes">좋아요 수</label><input type="text" id="likes" value="2"></div>
+<div class="f"><label for="slides">슬라이드 개수</label><input type="number" id="slides" min="1" max="10" value="4"></div>
+<div class="f"><label for="time">상태바 시간</label><input type="text" id="time" value="2:41"></div>
+</div>
+<label class="ck"><input type="checkbox" id="liked" checked><span>좋아요 누름 (빨간 하트)</span></label>
+<label class="ck"><input type="checkbox" id="blur" checked><span>계정명 모자이크</span></label>
+<label class="ck"><input type="checkbox" id="sb"><span>아이폰 상태바 포함</span></label>
+<div class="err" id="err"></div>
+</div>
+<div>
+<div class="prev"><img id="out" alt="미리보기"></div>
+<div class="save"><b>저장하는 법</b><br>휴대폰: 미리보기 이미지를 <b>길게 누르기</b> → 사진에 저장<br>컴퓨터: 이미지에 <b>마우스 오른쪽 클릭</b> → 이미지를 다른 이름으로 저장</div>
+</div>
+</div>
+<canvas id="c" hidden></canvas>
+<script>
+const W=1108,PH=1385,FF='"Noto Sans KR","Apple SD Gothic Neo","Malgun Gothic",sans-serif';
+let img=null,av=null;
+const $=id=>document.getElementById(id);
+$('photo').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{const i=new Image();i.onload=()=>{img=i;draw()};i.src=r.result};r.readAsDataURL(f)};
+$('avatar').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{const i=new Image();i.onload=()=>{av=i;draw()};i.src=r.result};r.readAsDataURL(f)};
+['h1','h2','cap','user','likes','slides','time','liked','blur','sb'].forEach(id=>{$(id).addEventListener('input',draw);$(id).addEventListener('change',draw)});
+
+function wrap(ctx,t,max){const out=[];let line='';for(const ch of t){const test=line+ch;if(ctx.measureText(test).width>max&&line){out.push(line);line=ch.trim()?ch:''}else line=test}out.push(line);return out}
+function heart(x,y,s,ctx){ctx.beginPath();ctx.moveTo(x+s/2,y+s*0.92);ctx.bezierCurveTo(x-s*0.12,y+s*0.48,x+s*0.02,y-s*0.06,x+s/2,y+s*0.2);ctx.bezierCurveTo(x+s*0.98,y-s*0.06,x+s*1.12,y+s*0.48,x+s/2,y+s*0.92);ctx.closePath()}
+function mosaic(ctx,x,y,w,h){const s=12;for(let i=0;i*s<w;i++)for(let j=0;j*s<h;j++){const l=28+((i*7+j*13)%5)*9;ctx.fillStyle=`hsl(0,0%,${l}%)`;ctx.fillRect(x+i*s,y+j*s,Math.min(s,w-i*s),Math.min(s,h-j*s))}}
+
+function draw(){
+const c=$('c'),ctx=c.getContext('2d');
+const paras=$('cap').value.split(/\n\s*\n/).map(s=>s.replace(/\n/g,' ').trim()).filter(Boolean);
+$('err').textContent=paras.length?'':'본문을 입력하세요';
+const MAXW=W-70;let lines=[];
+paras.forEach((p,i)=>{
+ if(i===0){ctx.font='700 30.5px '+FF;const uw=$('blur').checked?310:ctx.measureText($('user').value+' ').width;
+  ctx.font='400 30.5px '+FF;const pad=' '.repeat(Math.ceil(uw/ctx.measureText(' ').width));
+  const wl=wrap(ctx,pad+p,MAXW);wl[0]=wl[0].slice(pad.length);lines.push({t:wl[0],first:true,uw});wl.slice(1).forEach(t=>lines.push({t}))}
+ else{ctx.font='400 30.5px '+FF;lines.push({gap:true});wrap(ctx,p,MAXW).forEach(t=>lines.push({t}))}
+});
+const SB=$('sb').checked?100:0,HD=124,ACT=118,LH=44;
+let capH=0;lines.forEach(l=>capH+=l.gap?22:LH);
+const top=SB+HD,actY=top+PH,likeY=actY+ACT;
+const H=likeY+50+capH+80;
+c.width=W;c.height=H;
+ctx.fillStyle='#000';ctx.fillRect(0,0,W,H);
+ctx.textBaseline='middle';
+
+// 상태바
+if(SB){ctx.fillStyle='#fff';ctx.font='700 34px '+FF;ctx.textAlign='left';ctx.fillText($('time').value,80,SB/2+4);
+ const bx=W-235,by=SB/2;for(let i=0;i<4;i++)ctx.fillRect(bx+i*13,by+8-i*6,9,10+i*6);
+ ctx.strokeStyle='#fff';ctx.lineWidth=4.5;ctx.lineCap='round';
+ for(let k=0;k<3;k++){ctx.beginPath();ctx.arc(bx+90,by+14,6+k*9,-Math.PI*0.75,-Math.PI*0.25);ctx.stroke()}
+ ctx.lineWidth=3;ctx.globalAlpha=.45;ctx.beginPath();ctx.roundRect(bx+125,by-12,58,28,8);ctx.stroke();ctx.globalAlpha=1;
+ ctx.beginPath();ctx.roundRect(bx+129,by-8,50,20,5);ctx.fill();ctx.fillRect(bx+186,by-3,4,10)}
+
+// 프로필 줄
+const ay=SB+HD/2;
+const g=ctx.createLinearGradient(30,ay+40,110,ay-40);g.addColorStop(0,'#feda75');g.addColorStop(.5,'#d62976');g.addColorStop(1,'#4f5bd5');
+ctx.fillStyle=g;ctx.beginPath();ctx.arc(76,ay,42,0,Math.PI*2);ctx.fill();
+ctx.fillStyle='#000';ctx.beginPath();ctx.arc(76,ay,37,0,Math.PI*2);ctx.fill();
+if(av){const s=Math.max(66/av.width,66/av.height),dw=av.width*s,dh=av.height*s;ctx.save();ctx.beginPath();ctx.arc(76,ay,33,0,Math.PI*2);ctx.clip();ctx.drawImage(av,76-dw/2,ay-dh/2,dw,dh);ctx.restore()}
+else{ctx.fillStyle='#2b2f35';ctx.beginPath();ctx.arc(76,ay,33,0,Math.PI*2);ctx.fill();
+ctx.fillStyle='#fff';ctx.font='700 28px '+FF;ctx.textAlign='center';ctx.fillText(($('user').value[0]||'O').toUpperCase(),76,ay+2)}
+ctx.textAlign='left';
+if($('blur').checked)mosaic(ctx,138,ay-17,290,34);
+else{ctx.font='700 31px '+FF;ctx.fillText($('user').value,138,ay+1)}
+ctx.fillStyle='#fff';for(let k=0;k<3;k++){ctx.beginPath();ctx.arc(W-90+k*16,ay,4.5,0,Math.PI*2);ctx.fill()}
+
+// 사진
+if(img){const s=Math.max(W/img.width,PH/img.height),dw=img.width*s,dh=img.height*s;ctx.save();ctx.beginPath();ctx.rect(0,top,W,PH);ctx.clip();ctx.drawImage(img,(W-dw)/2,top+(PH-dh)/2,dw,dh);ctx.restore()}
+else{const pg=ctx.createLinearGradient(0,top,W,top+PH);pg.addColorStop(0,'#6b4a35');pg.addColorStop(1,'#2a1d16');ctx.fillStyle=pg;ctx.fillRect(0,top,W,PH);
+ ctx.fillStyle='rgba(255,255,255,.55)';ctx.font='600 40px '+FF;ctx.textAlign='center';ctx.fillText('왼쪽에서 사진을 올려주세요',W/2,top+PH*0.38);ctx.textAlign='left'}
+const og=ctx.createLinearGradient(0,top+PH*0.5,0,top+PH);og.addColorStop(0,'rgba(0,0,0,0)');og.addColorStop(1,'rgba(0,0,0,.78)');ctx.fillStyle=og;ctx.fillRect(0,top+PH*0.5,W,PH*0.5);
+ctx.fillStyle='#fff';ctx.textBaseline='alphabetic';
+[[$('h1').value,PH-175],[$('h2').value,PH-70]].forEach(([t,y])=>{let fs=96;ctx.font=`800 ${fs}px ${FF}`;while(ctx.measureText(t).width>W-120&&fs>40){fs-=2;ctx.font=`800 ${fs}px ${FF}`}ctx.fillText(t,60,top+y)});
+ctx.textBaseline='middle';
+const n=Math.max(1,Math.min(10,parseInt($('slides').value)||1));
+if(n>1){ctx.fillStyle='rgba(18,18,18,.7)';ctx.beginPath();ctx.roundRect(W-130,top+30,96,52,26);ctx.fill();ctx.fillStyle='#fff';ctx.font='600 28px '+FF;ctx.textAlign='center';ctx.fillText('1/'+n,W-82,top+57);ctx.textAlign='left'}
+
+// 아이콘 줄
+const iy=actY+ACT/2;
+ctx.lineWidth=4.5;ctx.strokeStyle='#fff';ctx.lineJoin='round';ctx.lineCap='round';
+heart(32,iy-28,58,ctx);if($('liked').checked){ctx.fillStyle='#ff3040';ctx.fill()}else ctx.stroke();
+ctx.beginPath();ctx.arc(150,iy,26,Math.PI*0.78,Math.PI*0.62,false);ctx.lineTo(124,iy+28);ctx.closePath();ctx.stroke();
+const px=212;ctx.beginPath();ctx.moveTo(px,iy-24);ctx.lineTo(px+58,iy-24);ctx.lineTo(px+34,iy+28);ctx.lineTo(px+24,iy+2);ctx.closePath();ctx.stroke();
+ctx.beginPath();ctx.moveTo(px+24,iy+2);ctx.lineTo(px+58,iy-24);ctx.stroke();
+const bk=W-78;ctx.beginPath();ctx.moveTo(bk,iy-27);ctx.lineTo(bk+42,iy-27);ctx.lineTo(bk+42,iy+28);ctx.lineTo(bk+21,iy+10);ctx.lineTo(bk,iy+28);ctx.closePath();ctx.stroke();
+if(n>1){const sp=22,sx=W/2-(n-1)*sp/2;for(let k=0;k<n;k++){ctx.fillStyle=k===0?'#0095f6':'#5a5a5a';ctx.beginPath();ctx.arc(sx+k*sp,iy,k===0?7:6,0,Math.PI*2);ctx.fill()}}
+
+// 좋아요 + 본문
+ctx.fillStyle='#fff';ctx.font='700 30.5px '+FF;ctx.fillText('좋아요 '+$('likes').value+'개',35,likeY+20);
+let y=likeY+50+LH/2;
+lines.forEach(l=>{if(l.gap){y+=22;return}
+ if(l.first){if($('blur').checked)mosaic(ctx,35,y-16,290,32);else{ctx.font='700 30.5px '+FF;ctx.fillStyle='#fff';ctx.fillText($('user').value,35,y)}
+  ctx.font='400 30.5px '+FF;ctx.fillStyle='#f5f5f5';ctx.fillText(l.t,35+l.uw,y)}
+ else{ctx.font='400 30.5px '+FF;ctx.fillStyle='#f5f5f5';ctx.fillText(l.t,35,y)}
+ y+=LH});
+ctx.fillStyle='#8a8a8a';ctx.font='400 24px '+FF;ctx.fillText('1시간 전',35,y+18);
+
+$('out').src=c.toDataURL('image/png');
+}
+draw();
+if(document.fonts){Promise.all(['400','700','800'].map(w=>document.fonts.load(w+' 30px "Noto Sans KR"'))).then(draw).catch(()=>{});document.fonts.ready.then(draw)}
+</script>
+
+</body>
+</html>
